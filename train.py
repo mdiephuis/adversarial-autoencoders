@@ -107,6 +107,8 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
             G_optim.zero_grad()
 
         # Encoder - Generator forward
+        nan_check_and_break(x)
+
         z_fake = E(x)
         x_hat = G(z_fake)
 
