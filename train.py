@@ -163,20 +163,19 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
 def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb):
 
     # Training loss
-    t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss  = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
 
     # Validation loss
-    v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)
+    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)
 
-    print('====> Epoch: {} Average Train loss: {:.4f}'.format(
-          epoch, t_loss))
-    print('====> Epoch: {} Average Validation loss: {:.4f}'.format(
-          epoch, v_loss))
+    print('====> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
+          epoch, EG_t_loss, D_t_loss, ER_t_loss))
+    print('====> Epoch: {} Average Valid EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(epoch, EG_v_loss, D_v_loss, ER_v_loss))
 
     if use_tb:
         pass
 
-    return t_loss, v_loss
+    return EG_v_loss, D_v_loss, ER_v_loss
 
 
 # Model definitions
@@ -202,4 +201,4 @@ best_loss = np.inf
 
 # Main training loop
 for epoch in range(1, num_epochs + 1):
-    t_loss, v_loss = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb)
+    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb)
