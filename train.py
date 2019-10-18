@@ -107,7 +107,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
             G_optim.zero_grad()
 
         # Encoder - Generator forward
-        z_fake = E(x)
+        z_fake = E(x).view(-1, args.latent_size, 1, 1)
         x_hat = G(z_fake)
 
         # reconstruction loss
@@ -121,15 +121,15 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
 
         # Discriminator forward
         # 1) sample real z
-        z_real = sample_noise(batch_size, args.latent_size)
+        z_real = sample_noise(batch_size, args.latent_size).view(-1, args.latent_size, 1, 1)
         z_real = z_real.cuda() if args.cuda else z_real
 
         # 2) get latent output
         z_fake = E(x)
 
         # build labels for discriminator
-        y_real = torch.ones(z.real.size(0), 1)
-        y_fake = torch.zeros(z.fake.size(0), 1)
+        y_real = torch.ones(z_real.size(0), 1)
+        y_fake = torch.zeros(z_fake.size(0), 1)
 
         y_real = y_real.cuda() if args.cuda else y_real
         y_fake = y_fake.cuda() if args.cuda else y_fake
