@@ -121,11 +121,11 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
 
         # Discriminator forward
         # 1) sample real z
-        z_real = sample_noise(batch_size, args.latent_size).view(-1, args.latent_size, 1, 1)
+        z_real = sample_noise(batch_size, args.latent_size).view(-1, args.latent_size)
         z_real = z_real.cuda() if args.cuda else z_real
 
         # 2) get latent output
-        z_fake = E(x)
+        z_fake = E(x).squeeze().detach()
 
         # build labels for discriminator
         y_real = torch.ones(z_real.size(0), 1)
@@ -147,7 +147,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
             D_optim.step()
 
         # Encoder forward, Discriminator
-        z_fake = E(x)
+        z_fake = E(x).squeeze().detach()
         y_hat_fake = D(z_fake)
         ER_loss = -torch.mean(torch.log(y_hat_fake + 1e-9))
         ER_batch_loss += ER_loss.item() / batch_size
