@@ -54,9 +54,6 @@ args = parser.parse_args()
 # Set cuda
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-# Set visdom
-use_visdom = args.visdom_url is not None
-
 # Set tensorboard
 use_tb = args.log_dir is not None
 log_dir = args.log_dir
@@ -75,32 +72,37 @@ else:
     device = torch.device("cpu")
 
 
+transforms = transforms.Compose([transforms.Resize((32, 32)), transforms.ToTensor()])
+
 # Get Fashion MNIST data
-train_dset = datasets.FashionMNIST('./data', train=True, download=True, transform=transforms.ToTensor())
+train_dset = datasets.FashionMNIST('./data', train=True, download=True, transform=transforms)
 train_loader = torch.utils.data.DataLoader(train_dset, batch_size=args.batch_size, shuffle=True)
-test_dset = datasets.FashionMNIST('./data', train=False, transform=transforms.ToTensor())
+test_dset = datasets.FashionMNIST('./data', train=False, transform=transforms)
 test_loader = torch.utils.data.DataLoader(test_dset, batch_size=args.batch_size, shuffle=True)
 
 
-def train_validate(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, data_loader, train):
+def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, train):
 
     # loss definitions
     bce_loss = nn.BCELoss()
     mse_loss = nn.MSELoss()
 
-    model.train() if train else model.eval()
+    E.train() if train else E.eval()
+    D.train() if train else D.eval()
+    G.train() if train else G.eval()
 
     EG_batch_loss = 0
     D_batch_loss = 0
     ER_batch_loss = 0
 
-    for batch_idx, (x, y) in enumerate(data_loader):
+    for batch_idx, (x, _) in enumerate(data_loader):
+
         x = x.cuda() if args.cuda else x
         batch_size = x.size(0)
 
         if train:
             E_optim.zero_grad()
-            E_reg_optim.zero_grad()
+            ER_optim.zero_grad()
             D_optim.zero_grad()
             G_optim.zero_grad()
 
@@ -120,12 +122,17 @@ def train_validate(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, data_loader,
         # Discriminator forward
         # 1) sample real z
         z_real = sample_noise(batch_size, args.latent_size)
+        z_real = z_real.cuda() if args.cuda else z_real
+
         # 2) get latent output
         z_fake = E(x)
 
         # build labels for discriminator
         y_real = torch.ones(z.real.size(0), 1)
         y_fake = torch.zeros(z.fake.size(0), 1)
+
+        y_real = y_real.cuda() if args.cuda else y_real
+        y_fake = y_fake.cuda() if args.cuda else y_fake
 
         # Discriminator forward
         y_hat_real = D(z_real)
@@ -147,19 +154,19 @@ def train_validate(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, data_loader,
 
         if train:
             ER_loss.backward()
-            E_reg_optim.step()
+            ER_optim.step()
 
     # collect better stats
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
 
-def execute_graph(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb):
+def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb):
 
     # Training loss
-    t_loss = train_validate(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, train_loader, train=True)
+    t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
 
     # Validation loss
-    v_loss = train_validate(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, test_loader, train=False)
+    v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)
 
     print('====> Epoch: {} Average Train loss: {:.4f}'.format(
           epoch, t_loss))
@@ -173,27 +180,26 @@ def execute_graph(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, train_loader,
 
 
 # Model definitions
-E = Encoder(1, args.latent_size, 128)
-G = Generator(1, args.latent_size, 128)
-D = Discriminator(args.latent_size, 128)
+E = Encoder(1, args.latent_size, 128).type(dtype)
+G = Generator(1, args.latent_size, 128).type(dtype)
+D = Discriminator(args.latent_size, 128).type(dtype)
 
-
-# Init weights
-E.apply(normal_init)
-G.apply(normal_init)
-D.apply(normal_init)
+# Init module weights
+init_normal_weights(E, 0, 0.02)
+init_normal_weights(G, 0, 0.02)
+init_normal_weights(D, 0, 0.02)
 
 # Optim def
 E_optim = Adam(E.parameters(), lr=args.elr)
 G_optim = Adam(G.parameters(), lr=args.glr)
 D_optim = Adam(D.parameters(), lr=args.dlr)
-E_reg_optim = Adam(D.parameters(), lr=args.erlr)
+ER_optim = Adam(E.parameters(), lr=args.erlr)
 
 
-# Util
+# Utils
 num_epochs = args.epochs
 best_loss = np.inf
 
 # Main training loop
 for epoch in range(1, num_epochs + 1):
-    t_loss, v_loss = execute_graph(E, D, G, E_optim, E_reg_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb)
+    t_loss, v_loss = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb)
