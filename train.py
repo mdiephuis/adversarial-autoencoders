@@ -206,6 +206,11 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
 
 
         # Reconstruction examples
+        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
+        reconstructed = reconstructed.detach()
+        reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
+        logger.add_image('reconstruction example', reconstructed, epoch)
+
 
 
     return EG_v_loss, D_v_loss, ER_v_loss
