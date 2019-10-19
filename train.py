@@ -1,24 +1,23 @@
 import numpy as np
-import os
 import argparse
 import torch
 from torch.optim import Adam
 from torchvision.utils import save_image
 from torch import autograd
 
-
-from torchvision import datasets
 from torchvision import transforms
 
 import torchvision.utils as tvu
 from tensorboardX import SummaryWriter
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-
 
 from models import *
 from utils import *
 from data import *
+
+mpl.use('Agg')
 
 
 parser = argparse.ArgumentParser(description='AAE')
@@ -27,6 +26,10 @@ parser = argparse.ArgumentParser(description='AAE')
 # Task parametersm and model name
 parser.add_argument('--uid', type=str, default='AAE',
                     help='Staging identifier (default: AAE)')
+
+# Model
+parser.add_argument('--model-type', type=str, default='conv',
+                    help='Type of model')
 
 # data loader parameters
 parser.add_argument('--dataset-name', type=str, default='FashionMNIST',
@@ -57,9 +60,7 @@ parser.add_argument('--glr', type=float, default=1e-3,
 
 parser.add_argument('--dlr', type=float, default=1e-3,
                     help='Discriminator Learning rate (default: 1e-3')
-# Model
-parser.add_argument('--type', type=str, default='conv',
-                    help='Type of model')
+
 
 
 parser.add_argument('--log-dir', type=str, default='runs',
@@ -105,13 +106,13 @@ train_loader = loader.train_loader
 test_loader = loader.test_loader
 
 
-def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train):
+def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, model_type, train):
 
     data_loader = loader.train_loader if train else loader.test_loader
 
     # loss definitions
-    bce_loss = nn.BCELoss(reduction = 'sum')
-    mse_loss = nn.MSELoss(reduction = 'sum')
+    bce_loss = nn.BCELoss(reduction='sum')
+    mse_loss = nn.MSELoss(reduction='sum')
 
     E.train() if train else E.eval()
     D.train() if train else D.eval()
@@ -125,7 +126,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
 
         x = x.cuda() if args.cuda else x
         batch_size = x.size(0)
-        if type != 'conv':
+        if model_type != 'conv':
             x = x.view(batch_size, -1)
 
         if train:
@@ -136,11 +137,11 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
 
         # Encoder - Generator forward
         z_fake = E(x)
-        if type == 'conv':
+        if model_type == 'conv':
             z_fake = z_fake.view(-1, args.latent_size, 1, 1)
         else:
             z_fake = z_fake.view(-1, args.latent_size)
-                    
+
         x_hat = G(z_fake)
 
         # reconstruction loss
@@ -185,7 +186,6 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
             y_hat_fake = D(z_fake)
             ER_loss = -torch.mean(torch.log(y_hat_fake + 1e-9))
             ER_batch_loss += ER_loss.item() / batch_size
-        
 
             if train:
                 ER_loss.backward()
@@ -194,13 +194,13 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
 
-def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, use_tb):
+def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, model_type, use_tb):
 
     # Training loss
-    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, model_type, train=True)
 
     # Validation loss
-    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train=False)
+    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, model_type, train=False)
 
     print('=> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
           epoch, EG_t_loss, D_t_loss, ER_t_loss))
@@ -218,19 +218,16 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, t
         # # Generation examples
         img_shape = loader.img_shape[1:]
 
-        sample = generation_example(G, args.latent_size, 10, img_shape, type, args.cuda)
+        sample = generation_example(G, args.latent_size, 10, img_shape, args.cuda)
         sample = sample.detach()
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
-
         # Reconstruction examples
-        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, type, args.cuda)
+        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
-
-
 
     return EG_v_loss, D_v_loss, ER_v_loss
 
@@ -264,4 +261,25 @@ best_loss = np.inf
 
 # Main training loop
 for epoch in range(1, num_epochs + 1):
-    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, args.type, use_tb)
+    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, args.model_type, use_tb)
+
+# latent space scatter example
+centroids, labels = latentcluster2d_example(E, loader, args.cuda)
+cmap = ['b', 'g', 'r', 'c', 'y', 'm', 'k']
+colors = [cmap[(int(i) % 7)] for i in labels]
+fig = plt.figure()
+plt.scatter(centroids[:, 0], centroids[:, 1], c=colors, cmap=plt.cm.Spectral)
+plt.savefig('output/latent_cluster_' + args.uid + '_' + args.dataset_name + '.png')
+plt.close(fig)
+
+if args.latent_size == 2:
+    img_shape = loader.img_shape[1:]
+    latent_space = latentspace2d_example(E, img_shape, args.batch_size, args.cuda)
+    fig = plt.figure()
+    plt.imshow(latent_space)
+    plt.tight_layout()
+    plt.savefig('output/latent_space_' + args.uid + '_' + args.dataset_name + '.png')
+    plt.close(fig)
+
+# TensorboardX logger
+logger.close()
