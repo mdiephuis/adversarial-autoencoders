@@ -201,7 +201,7 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
 
         sample = generation_example(G, args.latent_size, 10, img_shape, args.cuda)
         sample = sample.detach()
-        sample = tvu.make_grid(sample, normalize=False, scale_each=True)
+        sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
 
