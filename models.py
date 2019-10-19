@@ -80,7 +80,7 @@ class MNIST_Encoder(nn.Module):
 
     def forward(self, x):
         x = F.leaky_relu((self.linear1(x)), 0.2)
-        x = F.leaky_relu((self.linear2(x)), 0.2)
+        x = torch.tanh((self.linear2(x)))
         return x
 
 
