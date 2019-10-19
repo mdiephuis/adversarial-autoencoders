@@ -60,7 +60,7 @@ log_dir = args.log_dir
 
 # Logger
 if use_tb:
-    logger = SummaryWriter()
+    logger = SummaryWriter(comment='_' + args.uid + '_' + args.dataset_name)
 
 # Enable CUDA, set tensor type and device
 if args.cuda:
@@ -124,7 +124,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
         z_real = sample_noise(batch_size, args.latent_size).view(-1, args.latent_size)
         z_real = z_real.cuda() if args.cuda else z_real
 
-        # 2) get latent output
+        # 2) Encoder forward, get latent z from data
         z_fake = E(x).squeeze().detach()
 
         # build labels for discriminator
@@ -134,6 +134,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
         y_real = y_real.cuda() if args.cuda else y_real
         y_fake = y_fake.cuda() if args.cuda else y_fake
 
+        # Discriminator forward on sampled z_real and z_fake from encoder
         y_hat_real = D(z_real)
         y_hat_fake = D(z_fake)
 
@@ -167,12 +168,18 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, te
     # Validation loss
     EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)
 
-    print('====> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
+    print('=> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
           epoch, EG_t_loss, D_t_loss, ER_t_loss))
-    print('====> Epoch: {} Average Valid EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(epoch, EG_v_loss, D_v_loss, ER_v_loss))
+    print('=> Epoch: {} Average Valid EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(epoch, EG_v_loss, D_v_loss, ER_v_loss))
 
     if use_tb:
-        pass
+        logger.add_scalar(log_dir + 'EG-train-loss', EG_t_loss, epoch)
+        logger.add_scalar(log_dir + 'D-train-loss', D_t_loss, epoch)
+        logger.add_scalar(log_dir + 'ER-train-loss', ER_t_loss, epoch)
+
+        logger.add_scalar(log_dir + 'EG-valid-loss', EG_v_loss, epoch)
+        logger.add_scalar(log_dir + 'D-valid-loss', D_v_loss, epoch)
+        logger.add_scalar(log_dir + 'ER-valid-loss', ER_v_loss, epoch)
 
     return EG_v_loss, D_v_loss, ER_v_loss
 
@@ -187,7 +194,7 @@ init_normal_weights(E, 0, 0.02)
 init_normal_weights(G, 0, 0.02)
 init_normal_weights(D, 0, 0.02)
 
-# Optim def
+# Optimiser definitions
 E_optim = Adam(E.parameters(), lr=args.elr)
 G_optim = Adam(G.parameters(), lr=args.glr)
 D_optim = Adam(D.parameters(), lr=args.dlr)
