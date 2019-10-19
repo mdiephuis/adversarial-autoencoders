@@ -134,7 +134,6 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
         y_real = y_real.cuda() if args.cuda else y_real
         y_fake = y_fake.cuda() if args.cuda else y_fake
 
-        # Discriminator forward
         y_hat_real = D(z_real)
         y_hat_fake = D(z_fake)
 
@@ -163,7 +162,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
 def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb):
 
     # Training loss
-    EG_t_loss, D_t_loss, ER_t_loss  = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
 
     # Validation loss
     EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)

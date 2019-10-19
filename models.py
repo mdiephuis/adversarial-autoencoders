@@ -33,13 +33,13 @@ class Generator(nn.Module):
         self.latent_size = latent_size
         self.d = d
 
-        self.deconv1_1 = nn.ConvTranspose2d(self.latent_size, self.d*2, 4, 1, 0)
-        self.deconv1_1_bn = nn.BatchNorm2d(self.d*2)
-        self.deconv1_2 = nn.ConvTranspose2d(10, self.d*2, 4, 1, 0)
-        self.deconv1_2_bn = nn.BatchNorm2d(self.d*2)
-        self.deconv2 = nn.ConvTranspose2d(self.d*2, self.d*2, 4, 2, 1)
-        self.deconv2_bn = nn.BatchNorm2d(self.d*2)
-        self.deconv3 = nn.ConvTranspose2d(self.d*2, self.d, 4, 2, 1)
+        self.deconv1_1 = nn.ConvTranspose2d(self.latent_size, self.d * 2, 4, 1, 0)
+        self.deconv1_1_bn = nn.BatchNorm2d(self.d * 2)
+        self.deconv1_2 = nn.ConvTranspose2d(10, self.d * 2, 4, 1, 0)
+        self.deconv1_2_bn = nn.BatchNorm2d(self.d * 2)
+        self.deconv2 = nn.ConvTranspose2d(self.d * 2, self.d * 2, 4, 2, 1)
+        self.deconv2_bn = nn.BatchNorm2d(self.d * 2)
+        self.deconv3 = nn.ConvTranspose2d(self.d * 2, self.d, 4, 2, 1)
         self.deconv3_bn = nn.BatchNorm2d(self.d)
         self.deconv4 = nn.ConvTranspose2d(self.d, self.in_channels, 4, 2, 1)
 
@@ -63,7 +63,7 @@ class Discriminator(nn.Module):
         self.linear3 = nn.Linear(self.d, 1)
 
     def forward(self, x):
-        x = F.leaky_relu((self.linear1(x)), 0.2).view(1, -1)  # after the second layer all samples are concatenated
+        x = F.leaky_relu((self.linear1(x)), 0.2)
         x = F.leaky_relu((self.linear2(x)), 0.2)
         x = torch.sigmoid(self.linear3(x))
         return x
