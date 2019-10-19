@@ -17,16 +17,17 @@ def generation_example(G, latent_size, n_samples, img_shape, use_cuda):
 
     return x_hat
 
+
 def reconstruct(E, G, test_loader, n_samples, img_shape, use_cuda):
     E.eval()
     G.eval()
-    
-    X_val, _= next(iter(test_loader))
+
+    X_val, _ = next(iter(test_loader))
     X_val = X_val.cuda() if use_cuda else X_val
-    
+
     z_val = E(X_val)
     X_hat_val = G(z_val)
-    
+
     X_val = X_val[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
     X_hat_val = X_hat_val[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
     comparison = torch.cat((X_val, X_hat_val), 1).view(10 * img_shape[0], 2 * img_shape[1])

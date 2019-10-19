@@ -204,22 +204,23 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
-
         # Reconstruction examples
         reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
 
-
-
     return EG_v_loss, D_v_loss, ER_v_loss
 
 
 # Model definitions
-E = Encoder(1, args.latent_size, 128).type(dtype)
-G = Generator(1, args.latent_size, 128).type(dtype)
-D = Discriminator(args.latent_size, 128).type(dtype)
+img_shape = loader.img_shape[1:]
+
+print(img_shape)
+
+E = MNIST_Encoder(np.prod(img_shape), args.latent_size).type(dtype)
+G = MNIST_Generator(np.prod(img_shape), args.latent_size).type(dtype)
+D = MNIST_Discriminator(args.latent_size).type(dtype)
 
 # Init module weights
 init_normal_weights(E, 0, 0.02)

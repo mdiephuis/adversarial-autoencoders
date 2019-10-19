@@ -67,3 +67,47 @@ class Discriminator(nn.Module):
         x = F.leaky_relu((self.linear2(x)), 0.2)
         x = torch.sigmoid(self.linear3(x))
         return x
+
+
+class MNIST_Encoder(nn.Module):
+    def __init__(self, in_channels, latent_size):
+        super(MNIST_Encoder, self).__init__()
+        self.in_channels = in_channels
+        self.latent_size = latent_size
+
+        self.linear1 = nn.Linear(self.in_channels, self.latent_size)
+        self.linear2 = nn.Linear(self.latent_size, self.latent_size)
+
+    def forward(self, x):
+        x = F.leaky_relu((self.linear1(x)), 0.2)
+        x = F.leaky_relu((self.linear2(x)), 0.2)
+        return x
+
+
+class MNIST_Generator(nn.Module):
+    def __init__(self, out_channels, latent_size):
+        super(MNIST_Generator, self).__init__()
+        self.out_channels = out_channels
+        self.latent_size = latent_size
+
+        self.linear1 = nn.Linear(self.latent_size, self.out_channels)
+        self.linear2 = nn.Linear(self.out_channels, self.out_channels)
+
+    def forward(self, x):
+        x = F.leaky_relu((self.linear1(x)), 0.2)
+        x = F.leaky_relu((self.linear2(x)), 0.2)
+        return x
+
+
+class MNIST_Discriminator(nn.Module):
+    def __init__(self, latent_size):
+        super(MNIST_Discriminator, self).__init__()
+        self.latent_size = latent_size
+
+        self.linear1 = nn.Linear(self.latent_size, self.latent_size // 2)
+        self.linear2 = nn.Linear(self.latent_size // 2, 1)
+
+    def forward(self, x):
+        x = F.leaky_relu((self.linear1(x)), 0.2)
+        x = torch.sigmoid(self.linear2(x))
+        return x
