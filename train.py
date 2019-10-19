@@ -273,14 +273,14 @@ plt.scatter(centroids[:, 0], centroids[:, 1], c=colors, cmap=plt.cm.Spectral)
 plt.savefig('output/latent_cluster_' + args.uid + '_' + args.dataset_name + '.png')
 plt.close(fig)
 
-if args.latent_size == 2:
-    img_shape = loader.img_shape[1:]
-    latent_space = latentspace2d_example(E, img_shape, args.batch_size, args.cuda)
-    fig = plt.figure()
-    plt.imshow(latent_space)
-    plt.tight_layout()
-    plt.savefig('output/latent_space_' + args.uid + '_' + args.dataset_name + '.png')
-    plt.close(fig)
+# if args.latent_size == 2:
+#     img_shape = loader.img_shape[1:]
+#     latent_space = latentspace2d_example(E, img_shape, args.batch_size, args.cuda)
+#     fig = plt.figure()
+#     plt.imshow(latent_space)
+#     plt.tight_layout()
+#     plt.savefig('output/latent_space_' + args.uid + '_' + args.dataset_name + '.png')
+#     plt.close(fig)
 
 # TensorboardX logger
 logger.close()
