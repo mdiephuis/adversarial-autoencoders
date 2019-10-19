@@ -1,14 +1,20 @@
 import numpy as np
+import os
 import argparse
 import torch
 from torch.optim import Adam
 from torchvision.utils import save_image
+from torch import autograd
+
 
 from torchvision import datasets
 from torchvision import transforms
 
 import torchvision.utils as tvu
 from tensorboardX import SummaryWriter
+
+import matplotlib.pyplot as plt
+
 
 from models import *
 from utils import *
@@ -44,7 +50,7 @@ parser.add_argument('--elr', type=float, default=1e-3,
                     help='Encoder Learning rate (default: 1e-3')
 
 parser.add_argument('--erlr', type=float, default=1e-4,
-                    help='Encoder Learning rate (default: 1e-4')
+                    help='Encoder Learning rate (default: 1e-3')
 
 parser.add_argument('--glr', type=float, default=1e-3,
                     help='Generator Learning rate (default: 1e-3')
@@ -65,7 +71,9 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 args = parser.parse_args()
 
 # Set cuda
+#os.environ["CUDA_VISIBLE_DEVICES"] = str(3)
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+
 
 # Set tensorboard
 use_tb = args.log_dir is not None
@@ -94,13 +102,13 @@ train_loader = loader.train_loader
 test_loader = loader.test_loader
 
 
-def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train):
+def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train):
 
     data_loader = loader.train_loader if train else loader.test_loader
 
     # loss definitions
-    bce_loss = nn.BCELoss()
-    mse_loss = nn.MSELoss()
+    bce_loss = nn.BCELoss(reduction = 'sum')
+    mse_loss = nn.MSELoss(reduction = 'sum')
 
     E.train() if train else E.eval()
     D.train() if train else D.eval()
@@ -136,7 +144,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train):
 
         # Discriminator forward
         # 1) sample real z
-        z_real = sample_noise(batch_size, args.latent_size).view(-1, args.latent_size)
+        z_real = autograd.Variable(sample_noise(batch_size, args.latent_size).view(-1, args.latent_size))
         z_real = z_real.cuda() if args.cuda else z_real
 
         # 2) Encoder forward, get latent z from data
@@ -162,15 +170,16 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train):
             D_optim.step()
 
         # Encoder forward, Discriminator
-        z_fake = E(x).squeeze().detach()
-        y_hat_fake = D(z_fake)
-        ER_loss = -torch.mean(torch.log(y_hat_fake + 1e-9))
-        ER_batch_loss += ER_loss.item() / batch_size
+        for it in range(3):
+            z_fake = E(x).squeeze().detach()
+            y_hat_fake = D(z_fake)
+            ER_loss = -torch.mean(torch.log(y_hat_fake + 1e-9))
+            ER_batch_loss += ER_loss.item() / batch_size
+        
 
-        if train:
-            ER_loss.backward()
-            ER_optim.step()
-
+            if train:
+                ER_loss.backward()
+                ER_optim.step()
     # collect better stats
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
@@ -178,10 +187,10 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train):
 def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, use_tb):
 
     # Training loss
-    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train=True)
 
     # Validation loss
-    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train=False)
+    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train=False)
 
     print('=> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
           epoch, EG_t_loss, D_t_loss, ER_t_loss))
@@ -204,23 +213,22 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
+
         # Reconstruction examples
         reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
 
+
+
     return EG_v_loss, D_v_loss, ER_v_loss
 
 
 # Model definitions
-img_shape = loader.img_shape[1:]
-
-print(img_shape)
-
-E = MNIST_Encoder(np.prod(img_shape), args.latent_size).type(dtype)
-G = MNIST_Generator(np.prod(img_shape), args.latent_size).type(dtype)
-D = MNIST_Discriminator(args.latent_size).type(dtype)
+E = Encoder(1, args.latent_size, 128).type(dtype)
+G = Generator(1, args.latent_size, 128).type(dtype)
+D = Discriminator(args.latent_size, 128).type(dtype)
 
 # Init module weights
 init_normal_weights(E, 0, 0.02)
