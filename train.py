@@ -57,6 +57,9 @@ parser.add_argument('--glr', type=float, default=1e-3,
 
 parser.add_argument('--dlr', type=float, default=1e-3,
                     help='Discriminator Learning rate (default: 1e-3')
+# Model
+parser.add_argument('--type', type=str, default='Conv',
+                    help='Type of model')
 
 
 parser.add_argument('--log-dir', type=str, default='runs',
@@ -102,7 +105,7 @@ train_loader = loader.train_loader
 test_loader = loader.test_loader
 
 
-def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train):
+def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train):
 
     data_loader = loader.train_loader if train else loader.test_loader
 
@@ -122,6 +125,8 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
 
         x = x.cuda() if args.cuda else x
         batch_size = x.size(0)
+        if type != 'conv':
+            x = x.view(batch_size, -1)
 
         if train:
             E_optim.zero_grad()
@@ -130,7 +135,12 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
             G_optim.zero_grad()
 
         # Encoder - Generator forward
-        z_fake = E(x).view(-1, args.latent_size, 1, 1)
+        z_fake = E(x)
+        if type == 'conv':
+            z_fake = z_fake.view(-1, args.latent_size, 1, 1)
+        else:
+            z_fake = z_fake.view(-1, args.latent_size)
+                    
         x_hat = G(z_fake)
 
         # reconstruction loss
@@ -184,13 +194,13 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
 
-def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, use_tb):
+def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, use_tb):
 
     # Training loss
-    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train=True)
 
     # Validation loss
-    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, train=False)
+    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, type, train=False)
 
     print('=> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
           epoch, EG_t_loss, D_t_loss, ER_t_loss))
@@ -208,14 +218,14 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
         # # Generation examples
         img_shape = loader.img_shape[1:]
 
-        sample = generation_example(G, args.latent_size, 10, img_shape, args.cuda)
+        sample = generation_example(G, args.latent_size, 10, img_shape, type, args.cuda)
         sample = sample.detach()
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
 
         # Reconstruction examples
-        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
+        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, type, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
@@ -226,9 +236,15 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, u
 
 
 # Model definitions
-E = Encoder(1, args.latent_size, 128).type(dtype)
-G = Generator(1, args.latent_size, 128).type(dtype)
-D = Discriminator(args.latent_size, 128).type(dtype)
+if args.type == 'conv':
+    E = Encoder(1, args.latent_size, 128).type(dtype)
+    G = Generator(1, args.latent_size, 128).type(dtype)
+    D = Discriminator(args.latent_size, 128).type(dtype)
+else:
+    E = MNIST_Encoder(32 * 32, args.latent_size).type(dtype)
+    G = MNIST_Generator(32 * 32, args.latent_size).type(dtype)
+    D = MNIST_Discriminator(args.latent_size).type(dtype)
+
 
 # Init module weights
 init_normal_weights(E, 0, 0.02)
@@ -248,4 +264,4 @@ best_loss = np.inf
 
 # Main training loop
 for epoch in range(1, num_epochs + 1):
-    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, use_tb)
+    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, args.type, use_tb)

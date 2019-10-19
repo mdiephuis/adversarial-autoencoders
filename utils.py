@@ -8,9 +8,14 @@ def sample_noise(batch_size, dim):
     return torch.Tensor(batch_size, dim).uniform_(-1, 1)
 
 
-def generation_example(G, latent_size, n_samples, img_shape, use_cuda):
+def generation_example(G, latent_size, n_samples, img_shape, type, use_cuda):
 
-    z_real = sample_noise(n_samples, latent_size).view(-1, latent_size, 1, 1)
+    z_real = sample_noise(n_samples, latent_size)
+    if type == 'conv':
+        z_real = z_real.view(-1, latent_size, 1, 1)
+    else:
+        z_real = z_real.view(-1, latent_size)
+    
     z_real = z_real.cuda() if use_cuda else z_real
 
     x_hat = G(z_real).cpu().view(n_samples, 1, img_shape[0], img_shape[1])
@@ -18,12 +23,15 @@ def generation_example(G, latent_size, n_samples, img_shape, use_cuda):
     return x_hat
 
 
-def reconstruct(E, G, test_loader, n_samples, img_shape, use_cuda):
+def reconstruct(E, G, test_loader, n_samples, img_shape, type, use_cuda):
     E.eval()
     G.eval()
 
     X_val, _ = next(iter(test_loader))
     X_val = X_val.cuda() if use_cuda else X_val
+    
+    if type != 'conv':
+        X_val = X_val.view(-1, img_shape[0] * img_shape[1])
 
     z_val = E(X_val)
     X_hat_val = G(z_val)
@@ -32,6 +40,7 @@ def reconstruct(E, G, test_loader, n_samples, img_shape, use_cuda):
     X_hat_val = X_hat_val[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
     comparison = torch.cat((X_val, X_hat_val), 1).view(10 * img_shape[0], 2 * img_shape[1])
     return comparison
+
 
 
 def nan_check_and_break(tensor, name=""):
