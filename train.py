@@ -12,9 +12,22 @@ from tensorboardX import SummaryWriter
 
 from models import *
 from utils import *
+from data import *
 
 
 parser = argparse.ArgumentParser(description='AAE')
+
+
+# Task parametersm and model name
+parser.add_argument('--uid', type=str, default='AAE',
+                    help='Staging identifier (default: AAE)')
+
+# data loader parameters
+parser.add_argument('--dataset-name', type=str, default='FashionMNIST',
+                    help='Name of dataset (default: FashionMNIST')
+
+parser.add_argument('--data-dir', type=str, default='data',
+                    help='Path to dataset (default: data')
 
 
 parser.add_argument('--latent-size', type=int, default=20, metavar='N',
@@ -72,13 +85,13 @@ else:
     device = torch.device("cpu")
 
 
-transforms = transforms.Compose([transforms.Resize((32, 32)), transforms.ToTensor()])
+# Data set transforms
+transforms = [transforms.Resize((32, 32)), transforms.ToTensor()]
 
-# Get Fashion MNIST data
-train_dset = datasets.FashionMNIST('./data', train=True, download=True, transform=transforms)
-train_loader = torch.utils.data.DataLoader(train_dset, batch_size=args.batch_size, shuffle=True)
-test_dset = datasets.FashionMNIST('./data', train=False, transform=transforms)
-test_loader = torch.utils.data.DataLoader(test_dset, batch_size=args.batch_size, shuffle=True)
+# Get train and test loaders for dataset
+data_loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, transforms, None, args.cuda)
+train_loader = data_loader.train_loader
+test_loader = data_loader.test_loader
 
 
 def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, train):
@@ -173,13 +186,23 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, te
     print('=> Epoch: {} Average Valid EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(epoch, EG_v_loss, D_v_loss, ER_v_loss))
 
     if use_tb:
-        logger.add_scalar(log_dir + 'EG-train-loss', EG_t_loss, epoch)
-        logger.add_scalar(log_dir + 'D-train-loss', D_t_loss, epoch)
-        logger.add_scalar(log_dir + 'ER-train-loss', ER_t_loss, epoch)
+        logger.add_scalar(log_dir + '/EG-train-loss', EG_t_loss, epoch)
+        logger.add_scalar(log_dir + '/D-train-loss', D_t_loss, epoch)
+        logger.add_scalar(log_dir + '/ER-train-loss', ER_t_loss, epoch)
 
-        logger.add_scalar(log_dir + 'EG-valid-loss', EG_v_loss, epoch)
-        logger.add_scalar(log_dir + 'D-valid-loss', D_v_loss, epoch)
-        logger.add_scalar(log_dir + 'ER-valid-loss', ER_v_loss, epoch)
+        logger.add_scalar(log_dir + '/EG-valid-loss', EG_v_loss, epoch)
+        logger.add_scalar(log_dir + '/D-valid-loss', D_v_loss, epoch)
+        logger.add_scalar(log_dir + '/ER-valid-loss', ER_v_loss, epoch)
+
+        # # Generation examples
+        # sample = generation_example(model, args.z_dim, data_loader.train_loader, input_shape, num_class, use_cuda)
+        # sample = sample.detach()
+        # sample = tvu.make_grid(sample, normalize=False, scale_each=True)
+        # logger.add_image('generation example', sample, epoch)
+
+
+        # Reconstruction examples
+
 
     return EG_v_loss, D_v_loss, ER_v_loss
 

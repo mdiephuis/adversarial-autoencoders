@@ -4,6 +4,17 @@ import torch.nn.init as init
 import numpy as np
 
 
+def generation_example(E, G, latent_size, data_loader):
+
+    num_class = data_loader.num_class
+    img_shape = data_loader.img_shape[1:]
+
+    draw = randn((num_class, latent_size), use_cuda)
+    sample = model.decode(draw).cpu().view(num_class, 1, img_shape[0], img_shape[1])
+
+    return sample
+
+
 def nan_check_and_break(tensor, name=""):
     if isinstance(input, list) or isinstance(input, tuple):
         for tensor in input:
