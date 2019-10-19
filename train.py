@@ -233,7 +233,7 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, m
 
 
 # Model definitions
-if args.type == 'conv':
+if args.model_type == 'conv':
     E = Encoder(1, args.latent_size, 128).type(dtype)
     G = Generator(1, args.latent_size, 128).type(dtype)
     D = Discriminator(args.latent_size, 128).type(dtype)
@@ -262,6 +262,7 @@ best_loss = np.inf
 # Main training loop
 for epoch in range(1, num_epochs + 1):
     _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, args.model_type, use_tb)
+
 
 # latent space scatter example
 centroids, labels = latentcluster2d_example(E, loader, args.cuda)

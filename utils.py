@@ -27,6 +27,7 @@ def pca_project(x, num_elem=2):
 def latentspace2d_example(E, img_shape, n_samples, use_cuda):
     E.eval()
     num_x, num_y = 20, 20
+    latent_size = 2
 
     x_values = np.linspace(-3, -3, num_x)
     y_values = np.linspace(-3, -3, num_y)
@@ -36,6 +37,9 @@ def latentspace2d_example(E, img_shape, n_samples, use_cuda):
         for j, xi in enumerate(y_values):
             draw = torch.from_numpy(
                 np.array([[np.float(xi), np.float(yi)]] * n_samples))
+
+            draw = draw.view(-1, 2, 1, 1)
+            # draw = draw.view(-1, 1, 1, 1)
             draw = draw.cuda() if use_cuda else draw
 
             x_hat = E(draw).cpu().detach().numpy()
