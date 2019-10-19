@@ -35,6 +35,8 @@ class Loader(object):
         tmp_batch, _ = self.train_loader.__iter__().__next__()
         self.img_shape = list(tmp_batch.size())[1:]
         self.num_class = num_class[dataset_ident]
+        # Note, might be incorrect for last batch in an iteration
+        self.batch_size = batch_size
 
     @staticmethod
     def get_dataset(dataset, file_path, download, data_transform, target_transform):

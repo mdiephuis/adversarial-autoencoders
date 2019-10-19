@@ -89,12 +89,14 @@ else:
 transforms = [transforms.Resize((32, 32)), transforms.ToTensor()]
 
 # Get train and test loaders for dataset
-data_loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, transforms, None, args.cuda)
-train_loader = data_loader.train_loader
-test_loader = data_loader.test_loader
+loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, transforms, None, args.cuda)
+train_loader = loader.train_loader
+test_loader = loader.test_loader
 
 
-def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, train):
+def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train):
+
+    data_loader = loader.train_loader if train else loader.test_loader
 
     # loss definitions
     bce_loss = nn.BCELoss()
@@ -173,13 +175,13 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, data_loader, tr
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
 
-def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb):
+def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, use_tb):
 
     # Training loss
-    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, train=True)
+    EG_t_loss, D_t_loss, ER_t_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train=True)
 
     # Validation loss
-    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, test_loader, train=False)
+    EG_v_loss, D_v_loss, ER_v_loss = train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, train=False)
 
     print('=> Epoch: {} Average Train EG loss: {:.4f}, D loss: {:.4f}, ER loss: {:.4f}'.format(
           epoch, EG_t_loss, D_t_loss, ER_t_loss))
@@ -195,10 +197,12 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, te
         logger.add_scalar(log_dir + '/ER-valid-loss', ER_v_loss, epoch)
 
         # # Generation examples
-        # sample = generation_example(model, args.z_dim, data_loader.train_loader, input_shape, num_class, use_cuda)
-        # sample = sample.detach()
-        # sample = tvu.make_grid(sample, normalize=False, scale_each=True)
-        # logger.add_image('generation example', sample, epoch)
+        img_shape = loader.img_shape[1:]
+
+        sample = generation_example(G, args.latent_size, 10, img_shape, args.cuda)
+        sample = sample.detach()
+        sample = tvu.make_grid(sample, normalize=False, scale_each=True)
+        logger.add_image('generation example', sample, epoch)
 
 
         # Reconstruction examples
@@ -230,4 +234,4 @@ best_loss = np.inf
 
 # Main training loop
 for epoch in range(1, num_epochs + 1):
-    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, train_loader, test_loader, epoch, use_tb)
+    _, _, _ = execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, use_tb)

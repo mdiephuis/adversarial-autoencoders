@@ -4,15 +4,18 @@ import torch.nn.init as init
 import numpy as np
 
 
-def generation_example(E, G, latent_size, data_loader):
+def sample_noise(batch_size, dim):
+    return torch.Tensor(batch_size, dim).uniform_(-1, 1)
 
-    num_class = data_loader.num_class
-    img_shape = data_loader.img_shape[1:]
 
-    draw = randn((num_class, latent_size), use_cuda)
-    sample = model.decode(draw).cpu().view(num_class, 1, img_shape[0], img_shape[1])
+def generation_example(G, latent_size, n_samples, img_shape, use_cuda):
 
-    return sample
+    z_real = sample_noise(n_samples, latent_size).view(-1, latent_size, 1, 1)
+    z_real = z_real.cuda() if use_cuda else z_real
+
+    x_hat = G(z_real).cpu().view(n_samples, 1, img_shape[0], img_shape[1])
+
+    return x_hat
 
 
 def nan_check_and_break(tensor, name=""):
@@ -50,10 +53,6 @@ def all_zero_check_and_break(tensor, name=""):
     if torch.sum(tensor == 0).item() == np.prod(list(tensor.shape)):
         print("tensor {} of {} dim was all zero".format(name, tensor.shape))
         exit(-1)
-
-
-def sample_noise(batch_size, dim):
-    return torch.Tensor(batch_size, dim).uniform_(-1, 1)
 
 
 def init_normal_weights(module, mu, std):
