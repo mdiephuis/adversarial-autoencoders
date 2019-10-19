@@ -58,7 +58,7 @@ parser.add_argument('--glr', type=float, default=1e-3,
 parser.add_argument('--dlr', type=float, default=1e-3,
                     help='Discriminator Learning rate (default: 1e-3')
 # Model
-parser.add_argument('--type', type=str, default='Conv',
+parser.add_argument('--type', type=str, default='conv',
                     help='Type of model')
 
 
@@ -110,8 +110,8 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
     data_loader = loader.train_loader if train else loader.test_loader
 
     # loss definitions
-    bce_loss = nn.BCELoss(reduction='sum')
-    mse_loss = nn.MSELoss(reduction='sum')
+    bce_loss = nn.BCELoss(reduction = 'sum')
+    mse_loss = nn.MSELoss(reduction = 'sum')
 
     E.train() if train else E.eval()
     D.train() if train else D.eval()
@@ -185,6 +185,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
             y_hat_fake = D(z_fake)
             ER_loss = -torch.mean(torch.log(y_hat_fake + 1e-9))
             ER_batch_loss += ER_loss.item() / batch_size
+        
 
             if train:
                 ER_loss.backward()
@@ -222,11 +223,14 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, t
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
+
         # Reconstruction examples
         reconstructed = reconstruct(E, G, test_loader, 10, img_shape, type, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
+
+
 
     return EG_v_loss, D_v_loss, ER_v_loss
 
