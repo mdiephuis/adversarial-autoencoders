@@ -61,8 +61,6 @@ parser.add_argument('--glr', type=float, default=1e-3,
 parser.add_argument('--dlr', type=float, default=1e-3,
                     help='Discriminator Learning rate (default: 1e-3')
 
-
-
 parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: logs)')
 
@@ -190,6 +188,7 @@ def train_validate(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, 
             if train:
                 ER_loss.backward()
                 ER_optim.step()
+
     # collect better stats
     return EG_batch_loss / (batch_idx + 1), D_batch_loss / (batch_idx + 1), ER_batch_loss / (batch_idx + 1)
 
@@ -218,13 +217,13 @@ def execute_graph(E, D, G, E_optim, ER_optim, D_optim, G_optim, loader, epoch, m
         # # Generation examples
         img_shape = loader.img_shape[1:]
 
-        sample = generation_example(G, args.latent_size, 10, img_shape, args.cuda)
+        sample = generation_example(G, args.model_type, args.latent_size, 10, img_shape, args.cuda)
         sample = sample.detach()
         sample = tvu.make_grid(sample, normalize=True, scale_each=True)
         logger.add_image('generation example', sample, epoch)
 
         # Reconstruction examples
-        reconstructed = reconstruct(E, G, test_loader, 10, img_shape, args.cuda)
+        reconstructed = reconstruct(E, G, args.model_type, test_loader, 10, img_shape, args.cuda)
         reconstructed = reconstructed.detach()
         reconstructed = tvu.make_grid(reconstructed, normalize=True, scale_each=True)
         logger.add_image('reconstruction example', reconstructed, epoch)
@@ -265,7 +264,8 @@ for epoch in range(1, num_epochs + 1):
 
 
 # latent space scatter example
-centroids, labels = latentcluster2d_example(E, loader, args.cuda)
+use_pca = True
+centroids, labels = latentcluster2d_example(E, args.model_type, loader, use_pca, args.cuda)
 cmap = ['b', 'g', 'r', 'c', 'y', 'm', 'k']
 colors = [cmap[(int(i) % 7)] for i in labels]
 fig = plt.figure()

@@ -51,12 +51,17 @@ def latentspace2d_example(E, img_shape, n_samples, use_cuda):
     return canvas
 
 
-def latentcluster2d_example(E, data_loader, use_cuda):
+def latentcluster2d_example(E, model_type, data_loader, use_pca, use_cuda):
     E.eval()
+    img_shape = data_loader.img_shape[1:]
+
     data = []
     labels = []
     for _, (x, y) in enumerate(data_loader.test_loader):
         x = x.cuda() if use_cuda else x
+        if model_type != 'conv':
+            x = x.view(-1, img_shape[0] * img_shape[1])
+
         z = E(x)
         data.append(z.detach().cpu())
         y = y.detach().cpu().numpy()
@@ -65,35 +70,44 @@ def latentcluster2d_example(E, data_loader, use_cuda):
     centroids = torch.cat(data)
     centroids = centroids.reshape(-1, z.size(1))
 
-    if centroids.size(1) > 2:
+    if centroids.size(1) > 2 and use_pca:
         centroids = pca_project(centroids, 2)
+    elif centroids.size(1) > 2:
+        centroids = centroids[:, :2]
 
     return centroids.numpy(), labels
 
 
-def generation_example(G, latent_size, n_samples, img_shape, use_cuda):
+def generation_example(G, model_type, latent_size, n_samples, img_shape, use_cuda):
 
     z_real = sample_noise(n_samples, latent_size).view(-1, latent_size, 1, 1)
     z_real = z_real.cuda() if use_cuda else z_real
+
+    if model_type != 'conv':
+        z_real = z_real.view(-1, latent_size)
 
     x_hat = G(z_real).cpu().view(n_samples, 1, img_shape[0], img_shape[1])
 
     return x_hat
 
 
-def reconstruct(E, G, test_loader, n_samples, img_shape, use_cuda):
+def reconstruct(E, G, model_type, test_loader, n_samples, img_shape, use_cuda):
     E.eval()
     G.eval()
 
-    X_val, _ = next(iter(test_loader))
-    X_val = X_val.cuda() if use_cuda else X_val
+    x, _ = next(iter(test_loader))
+    x = x.cuda() if use_cuda else x
 
-    z_val = E(X_val)
-    X_hat_val = G(z_val)
+    if model_type != 'conv':
+        x = x.view(-1, img_shape[0] * img_shape[1])
 
-    X_val = X_val[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
-    X_hat_val = X_hat_val[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
-    comparison = torch.cat((X_val, X_hat_val), 1).view(10 * img_shape[0], 2 * img_shape[1])
+    z_val = E(x)
+
+    x_hat = G(z_val)
+
+    x = x[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
+    x_hat = x_hat[:n_samples].cpu().view(10 * img_shape[0], img_shape[1])
+    comparison = torch.cat((x, x_hat), 1).view(10 * img_shape[0], 2 * img_shape[1])
     return comparison
 
 
